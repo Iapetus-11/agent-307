@@ -12,6 +12,7 @@ use video::{capture_video, VideoCam};
 
 mod config;
 mod ui;
+mod utils;
 mod video;
 
 pub type CamsMapping = BTreeMap<
@@ -76,6 +77,7 @@ fn main() -> Result<(), Box<dyn StdError>> {
 }
 
 struct SMApp {
+    #[allow(dead_code)]
     config: Config,
     cams: CamsMapping,
     cams_paused: bool,

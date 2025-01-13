@@ -1,20 +1,20 @@
 use std::{
-    cell::LazyCell,
     fs::{self, File},
     io::Write,
-    path::PathBuf,
+    path::{Path, PathBuf},
+    sync::LazyLock,
 };
 
 use home::home_dir;
 use serde::{Deserialize, Serialize};
 
-pub const CONFIG_PATH: LazyCell<PathBuf> = LazyCell::new(|| {
+pub static CONFIG_PATH: LazyLock<Box<Path>> = LazyLock::new(|| {
     let mut path = home_dir().unwrap();
     path.push(".config/agent-307/config.json");
-    path
+    path.into_boxed_path()
 });
 
-const DEFAULT_RECORDINGS_PATH: LazyCell<PathBuf> = LazyCell::new(|| {
+static DEFAULT_RECORDINGS_PATH: LazyLock<Box<Path>> = LazyLock::new(|| {
     let mut path = home_dir().unwrap();
 
     if cfg!(target_os = "macos") {
@@ -23,7 +23,7 @@ const DEFAULT_RECORDINGS_PATH: LazyCell<PathBuf> = LazyCell::new(|| {
         todo!();
     }
 
-    path
+    path.into_boxed_path()
 });
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -55,21 +55,20 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             video_devices: config_video_device_configs_default(),
-            recordings_dir: DEFAULT_RECORDINGS_PATH.clone(),
+            recordings_dir: DEFAULT_RECORDINGS_PATH.to_path_buf(),
         }
     }
 }
 
 pub fn load_config() -> Config {
-    let config_saved = CONFIG_PATH.exists();
+    let config_saved = CONFIG_PATH.to_path_buf().exists();
 
-    let config: Config;
-    if !config_saved {
-        config = Config::default();
+    let config: Config = if !config_saved {
+        Config::default()
     } else {
         let file = File::open(&*CONFIG_PATH).unwrap();
-        config = serde_json::from_reader(file).unwrap();
-    }
+        serde_json::from_reader(file).unwrap()
+    };
 
     if !config_saved {
         fs::create_dir_all(CONFIG_PATH.parent().unwrap()).unwrap();
