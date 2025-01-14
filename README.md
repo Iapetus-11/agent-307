@@ -2,11 +2,11 @@
 *A small tool to record video in segments for security purposes*
 
 ## Checklist
-[x] Show video previews in-app
-[x] Record/save video in segments
-[ ] Auto Delete footage older than certain time
-[ ] Video segment length config
-[ ] In-app config management
+- [x] Show video previews in-app
+- [x] Record/save video in segments
+- [ ] Auto Delete footage older than certain time
+- [ ] Video segment length config
+- [ ] In-app config management
 
 ## MacOS Build Instructions
 ```
