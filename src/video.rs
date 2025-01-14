@@ -4,8 +4,10 @@ use std::{
     path::PathBuf,
     sync::{atomic::AtomicBool, Arc, Mutex, RwLock},
     thread,
+    time::Duration,
 };
 
+use chrono::Utc;
 use opencv::{
     core::{Mat, MatTraitConst},
     videoio::{self, VideoCaptureTrait, VideoCaptureTraitConst},
@@ -63,30 +65,13 @@ fn save_video_chunk(
     Ok(())
 }
 
-pub fn capture_video(
-    app_config: Config,
-    cam: Arc<VideoCam>,
-) -> Result<(), Box<dyn StdError + Send>> {
+fn capture_video_(app_config: Config, cam: Arc<VideoCam>) -> Result<(), Box<dyn StdError + Send>> {
     // TODO: Add retry logic when first connecting/capturing
 
     let mut vid_cap: videoio::VideoCapture =
         videoio::VideoCapture::new(cam.config.idx, videoio::CAP_ANY).map_err(|_| {
             sendable_anyhow(format!("Failed to open video device {}", cam.config.idx))
         })?;
-
-    let cam_fps = vid_cap.get(videoio::CAP_PROP_FPS).map_err(|_| {
-        sendable_anyhow(format!(
-            "Failed to get fps for video device {}",
-            cam.config.idx
-        ))
-    })?;
-
-    if cam_fps < 1.0 {
-        return Err(sendable_anyhow(format!(
-            "fps was less than 1.0 for video device {}",
-            cam.config.idx
-        )));
-    }
 
     let cam_size = {
         let width = vid_cap.get(videoio::CAP_PROP_FRAME_WIDTH).map_err(|_| {
@@ -104,6 +89,20 @@ pub fn capture_video(
 
         (width.ceil() as u32, height.ceil() as u32)
     };
+
+    let cam_fps = vid_cap.get(videoio::CAP_PROP_FPS).map_err(|_| {
+        sendable_anyhow(format!(
+            "Failed to get fps for video device {}",
+            cam.config.idx
+        ))
+    })?;
+
+    if cam_fps < 1.0 {
+        return Err(sendable_anyhow(format!(
+            "fps was less than 1.0 for video device {}",
+            cam.config.idx
+        )));
+    }
 
     let mut video_writer: Option<Arc<Mutex<VideoWriter>>> = match cam.config.recording.enabled {
         true => {
@@ -210,5 +209,40 @@ pub fn capture_video(
                 ))));
             }
         }
+    }
+}
+
+pub fn capture_video(
+    app_config: Config,
+    cam: Arc<VideoCam>,
+) -> Result<(), Box<dyn StdError + Send>> {
+    let mut try_count = 0;
+    let mut last_try_res: Result<(), Box<dyn StdError + Send>>;
+    let mut last_try_at: chrono::DateTime<Utc>;
+
+    // Allow up to three tries, spaced 1 second apart. If it's been more than 2hr, reset retries
+    loop {
+        last_try_at = Utc::now();
+
+        last_try_res = capture_video_(app_config.clone(), cam.clone());
+
+        try_count += 1;
+
+        if last_try_res.is_ok() {
+            return Ok(());
+        }
+
+        if (Utc::now() - last_try_at) > chrono::Duration::hours(2) {
+            try_count = 0;
+        } else if try_count > 3 {
+            return last_try_res;
+        }
+
+        println!(
+            "Failed to initialize capture for device {} due to error: {:?}",
+            cam.config.idx, last_try_res
+        );
+
+        thread::sleep(Duration::from_millis(1000));
     }
 }
