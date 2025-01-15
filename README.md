@@ -7,7 +7,7 @@
 ## Checklist
 - [x] Show video previews in-app
 - [x] Record/save video in segments
-- [ ] Auto Delete footage older than certain time
+- [x] Auto Delete footage older than certain time
 - [ ] Video segment length config
 - [ ] In-app config management
 
