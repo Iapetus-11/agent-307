@@ -125,7 +125,27 @@ fn capture_video_(app_config: Config, cam: Arc<VideoCam>) -> Result<(), Box<dyn 
         .collect::<Vec<_>>();
     let full_clip_of_frames_count = (cam_fps * 60.0 * 4.0) as usize; // 4 min
 
+    let max_frame_width = cam
+        .config
+        .max_resolution_width
+        .map(|r| r as f32)
+        .unwrap_or(cam_size.0 as f32);
+
+    let resized_height = ((max_frame_width / cam_size.0 as f32) * cam_size.1 as f32) as i32;
+
     loop {
+        if !vid_cap.is_opened().map_err(|_| {
+            sendable_anyhow(format!(
+                "Failed to check if video device {} is open",
+                cam.config.idx
+            ))
+        })? {
+            return Err(sendable_anyhow(format!(
+                "Video device {} is no longer open",
+                cam.config.idx
+            )));
+        }
+
         if !vid_cap
             .read(&mut frames_buf[frame_idx % frame_buf_len])
             .map_err(|_| {
@@ -141,18 +161,12 @@ fn capture_video_(app_config: Config, cam: Arc<VideoCam>) -> Result<(), Box<dyn 
             )));
         }
 
-        let max_frame_width = cam
-            .config
-            .max_resolution_width
-            .map(|r| r as f32)
-            .unwrap_or(cam_size.0 as f32);
-        let new_height = ((max_frame_width / cam_size.0 as f32) * cam_size.1 as f32) as i32;
         opencv::imgproc::resize(
             &frames_buf[frame_idx % frame_buf_len].clone(),
             &mut frames_buf[frame_idx % frame_buf_len],
             opencv::core::Size {
                 width: max_frame_width as i32,
-                height: new_height,
+                height: resized_height,
             },
             0.0,
             0.0,

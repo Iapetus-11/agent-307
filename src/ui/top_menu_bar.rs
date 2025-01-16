@@ -27,8 +27,16 @@ pub fn show_top_menu_bar(app: &mut SMApp, ui: &mut Ui) {
                     ))
                     .status()
                     .unwrap();
-            } else {
-                todo!();
+            } else if cfg!(target_os = "linux") {
+                // I am aware this is not right 100% of the time
+
+                Command::new("xdg-open")
+                    .arg(format!(
+                        "{}",
+                        CONFIG_PATH.parent().unwrap().as_os_str().to_string_lossy()
+                    ))
+                    .status()
+                    .unwrap();
             }
         }
 

@@ -19,8 +19,10 @@ static DEFAULT_RECORDINGS_PATH: LazyLock<Box<Path>> = LazyLock::new(|| {
 
     if cfg!(target_os = "macos") {
         path.push("Movies/Agent 307");
+    } else if cfg!(target_os = "linux") {
+        path.push("Videos/Agent 307");
     } else {
-        todo!();
+        todo!("Add support for this target OS");
     }
 
     path.into_boxed_path()
